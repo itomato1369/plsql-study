@@ -1,6 +1,6 @@
 # PL/SQL 基礎まとめ
 
-> 原典：Oracle PL/SQL 学習資料、要点をClaudeを利用して圧縮したものです。
+> 原典：[Oracle PL/SQL 学習資料](https://www.oracle.com/jp/technical-resources/articles/plsql101.html)、要点をClaudeを利用して圧縮したものです。
 
 ---
 
@@ -435,5 +435,3 @@ END;
 | トリガー | DML時に自動実行。乱用は避ける |
 
 ---
-
-> ※ 本まとめは原典の内容を日本語に訳し、新人が学習しやすいように要点を抜粋・整理したものです。例のコードは一部簡略化しています。実際の開発ではOracleのバージョンに応じた公式ドキュメントも確認してください。
