@@ -1,6 +1,6 @@
 # PL/SQL 基礎まとめ
 
-> 原典：[Oracle PL/SQL 学習資料](https://www.oracle.com/jp/technical-resources/articles/plsql101.html)、要点をClaude、GitHub Copilotを利用して圧縮したものです。
+> 原典：[Oracle PL/SQL 学習資料](https://www.oracle.com/jp/technical-resources/articles/plsql101.html)、[Database PL/SQL Language Reference](https://docs.oracle.com/en/database/oracle/oracle-database/26/lnpls/index.html)要点をClaude、GitHub Copilotを利用して圧縮したものです。
 
 ---
 
