@@ -18,7 +18,8 @@
 10. ファンクション（関数）
 11. パッケージ（関連する部品をまとめる）
 12. トリガー（自動実行の仕組み）
-13. 覚えておきたいポイント（まとめ）
+13. トランザクション制御（TCL）と権限制御（DCL）
+14. 覚えておきたいポイント（まとめ）
 
 ---
 
@@ -109,12 +110,12 @@ FROM emp WHERE deptno = v_deptno;
 
 | 優先順位 | 演算子 |
 |---|---|
-| 1 | `**`（累乗）、`NOT`（否定） |
+| 1 | `**`（累乗）、`AND` → `OR`（論理積・論理和） |
 | 2 | `+` / `-`（符号） |
 | 3 | `*` / `/`（乗除） |
 | 4 | `+` `-` `\|\|`（加減・文字連結） |
 | 5 | `=`, `!=`, `<`, `>`, `IS NULL`, `LIKE`, `BETWEEN`, `IN`（比較） |
-| 6 | `AND` → `OR`（論理積・論理和） |
+| 6 | `NOT`（否定） |
 
 ### 暗黙カーソルの属性（DML結果の確認）
 
@@ -175,6 +176,8 @@ END LOOP;
 DECLARE
   emp_rec emp%ROWTYPE;   -- 行全体を受け取る
 BEGIN
+  -- SELECT * FROM TABLE よりは
+  -- 抽出したいカラム名を確実に記入した方が良いs
   SELECT * INTO emp_rec FROM emp WHERE empno = 7369;
   DBMS_OUTPUT.PUT_LINE(emp_rec.ename);   -- 項目名で参照
 END;
@@ -199,19 +202,27 @@ SELECTが複数行を返す場合は、カーソルを宣言して1行ずつ処�
 
 ```sql
 DECLARE
-  CURSOR emp_cursor IS SELECT empno, ename FROM emp;
-  v_empno emp.empno%TYPE;
-  v_ename emp.ename%TYPE;
+  CURSOR emp_cursor IS
+    SELECT employee_id, last_name FROM employees ORDER BY employee_id;
+  v_employee_id employees.employee_id%TYPE;
+  v_last_name employees.last_name%TYPE;
 BEGIN
   OPEN emp_cursor;
   LOOP
-    FETCH emp_cursor INTO v_empno, v_ename;
-    EXIT WHEN emp_cursor%NOTFOUND;   -- 終了条件を必ず入れる
-    DBMS_OUTPUT.PUT_LINE(v_empno || ' ' || v_ename);
+    FETCH emp_cursor INTO v_employee_id, v_last_name;
+    EXIT WHEN emp_cursor%NOTFOUND;   -- FETCHの直後に終了判定
+    DBMS_OUTPUT.PUT_LINE(v_employee_id || ' ' || v_last_name);
   END LOOP;
   CLOSE emp_cursor;
 END;
 ```
+
+この例は、事前に `sql/01_basics/01_test_data.sql` を実行して `employees` 表を作成してから実行します。練習用スクリプト：
+
+- [カーソルFORループ](sql/04_cursor/01_loop_cursor.sql)：名前付きカーソル、パラメータ付きカーソル、SELECTを直接書く方法
+- [明示カーソル](sql/04_cursor/02_explicit_cursor.sql)：`OPEN`・`FETCH`・`CLOSE`、`%TYPE`・`%ROWTYPE`、カーソル属性、0件の場合
+
+参考：Oracle公式リファレンス [カーソル概要](https://docs.oracle.com/en/database/oracle/oracle-database/26/lnpls/cursors-overview.html)、[カーソルFORループ](https://docs.oracle.com/en/database/oracle/oracle-database/26/lnpls/cursor-FOR-LOOP-statement.html)、[明示カーソルの宣言と定義](https://docs.oracle.com/en/database/oracle/oracle-database/26/lnpls/explicit-cursor-declaration-and-definition.html)（Oracle AI Database 26ai）
 
 ### (2) カーソルFORループ（最も簡単な書き方）
 
@@ -219,7 +230,7 @@ OPEN・FETCH・CLOSE を自動で行い、レコード変数も自動で宣言�
 
 ```sql
 FOR emp_rec IN emp_cursor LOOP
-  DBMS_OUTPUT.PUT_LINE(emp_rec.ename);
+  DBMS_OUTPUT.PUT_LINE(emp_rec.last_name);
 END LOOP;
 ```
 
@@ -270,6 +281,8 @@ END;
 - **SQLERRM**：エラーメッセージ
 - **RAISE_APPLICATION_ERROR(番号, メッセージ)**：-20000〜-20999 の範囲で独自のエラーを返す
 
+例外の発生・捕捉・ユーザー定義例外・再送出の実行例は、[例外処理の学習スクリプト](sql/05_exception/01_exception_handling.sql)を参照してください。参考：Oracle公式 [例外処理](https://docs.oracle.com/en/database/oracle/oracle-database/26/lnpls/overview-exception-handling.html)。
+
 ---
 
 ## 9. プロシージャ（手続き）
@@ -303,6 +316,8 @@ EXECUTE query_emp(7654, :g_name)
 PRINT g_name
 ```
 
+この章の実行例（IN/OUT、例外、社員の表示・削除、部署の追加）：[プロシージャの学習スクリプト](sql/06_subprogram/01_procedure.sql)。実行前に [テストデータ](sql/01_basics/01_test_data.sql) を作成してください。
+
 ---
 
 ## 10. ファンクション（関数）
@@ -311,7 +326,7 @@ PRINT g_name
 
 - ヘッダーに `RETURN 型` が必要で、本体に `RETURN` 文が必要です。
 - **SQL文の中で呼び出せる**（SELECT・WHERE・VALUES・SET句など）のが大きな特徴です。
-- **制限**：INパラメータのみ使用可、`INSERT` / `UPDATE` / `DELETE` は禁止、`BOOLEAN` 等のPL/SQL専用型は使用不可。
+- **SQL文から呼び出す場合の制限**：SQLから渡せるのはIN引数で、関数は表の更新など副作用を起こさないようにします。SQL文から呼ぶときはSQLで使用できる型を使います。
 
 ```sql
 CREATE OR REPLACE FUNCTION get_sal (v_id IN emp.empno%TYPE)
@@ -326,6 +341,8 @@ END;
 
 SELECT ename, get_sal(empno) FROM emp;   -- SQL内で利用
 ```
+
+指定された練習問題を含む実行例（合計、昇給額、年俸、名前のマスキング）：[ファンクションの学習スクリプト](sql/06_subprogram/02_function.sql)。
 
 ### プロシージャとファンクションの違い
 
@@ -383,6 +400,8 @@ EXECUTE comm_package.reset_comm(1500);   -- 呼び出し
 
 - **削除**：`DROP PACKAGE 名前;`（仕様部と本体部の両方）、`DROP PACKAGE BODY 名前;`（本体部のみ）
 
+仕様部・本体部、公開／非公開処理、オーバーロード、パッケージ変数の例：[パッケージの学習スクリプト](sql/07_package/01_package.sql)。
+
 ---
 
 ## 12. トリガー（自動実行の仕組み）
@@ -420,9 +439,89 @@ END;
 - **有効化・無効化**：`ALTER TRIGGER 名前 ENABLE | DISABLE;`、テーブル単位では `ALTER TABLE 表名 ENABLE ALL TRIGGERS;`
 - **削除**：`DROP TRIGGER 名前;`
 
+BEFORE/AFTER、行／文トリガー、`:OLD` / `:NEW`、監査ログの練習：[トリガーの学習スクリプト](sql/08_trigger/01_trigger.sql)。このスクリプトは専用のデモ表を作成し、同名のデモ表があれば削除して作り直します。
+
 ---
 
-## 13. 覚えておきたいポイント（まとめ）
+## 13. トランザクション制御（TCL）と権限制御（DCL）
+
+| 命令 | 役割 |
+|---|---|
+| COMMIT | 現在のトランザクションの変更を確定する。他のセッションからも見えるようになり、ロックも解放される |
+| ROLLBACK | 最後のCOMMIT以降の変更をすべて取り消す。ロックも解放される |
+| SAVEPOINT 名前 | 作業の途中に目印を付ける |
+| ROLLBACK TO SAVEPOINT 名前 | 目印の時点まで戻す。目印より前の変更は残る |
+| SET TRANSACTION READ ONLY | 読み取り専用のトランザクションを開始する（変更はできない）
+
+```sql
+SET SERVEROUTPUT ON;
+
+DECLARE
+  v_balance NUMBER;
+  e_insufficient EXCEPTION:
+BEGIN
+  SELECT balance INTO v_balance FROM accounts WHERE account_id = 'A' FOR UPDATE;
+
+  IF v_balance < 1000 THEN
+    RAISE e_insufficient;
+  END IF;
+
+  UPDATE accounts SET balance = balance - 1000 WHERE account_id = 'A';
+  SAVEPOINT after_withdraw;
+
+  UPDATE accounts SET balance = balance + 1000 WHERE account_id = 'B';
+
+  COMMIT;
+EXCEPTION
+  WHEN e_insufficient THEN
+    ROLLBACK;
+    RAISE_APPLICATION_ERROR(-20001, '残高不足');
+  WHEN OTHERS THEN
+    ROLLBACK;
+    RAISE;
+END;
+/
+```
+
+| 命令 | 役割 |
+|---|---|
+| GRANT | 権限を与える |
+| REVOKE | 権限を取り消す |
+
+権限の種類
+- オブジェクト権限：特定のオブジェクトに対する操作権限（SELECT・INSERT・UPDATE・DELETE・EXECUTEなど）
+- システム権限：データベース全体に関わる操作の権限（CREATE TABLE・CREATE SESSIONなど）
+
+```sql
+-- オブジェクト権限
+GRANT SELECT, INSERT ON accounts TO app_user;
+
+-- 別のユーザーに権限を再付与できる権限も付ける
+GRANT UPDATE ON accounts TO app_user WITH GRANT OPTION;
+
+-- プロシージャの実行権限だけを与える（テーブルへの直接アクセスは不要）
+-- 実際の現場ではテーブルへの直接アクセスができない
+-- 会社のデータベースを操作したら大きな問題になる
+GRANT EXECUTE ON transfer_funds TO app_user;
+
+-- システム権限
+GRANT CREATE TABLE TO app_user;
+
+-- 取り消し
+REVOKE INSERT ON accounts FROM app_user;
+```
+
+ロール（権限のグループ）
+- 多数のユーザーに同じ権限を与える場合は、ロールにまとめて付与すると管理しやすくなります。
+
+```sql
+CREATE ROLE teller_role;
+GRANT SELECT, UPDATE ON accounts TO teller_role;
+GRANT teller_role TO app_user;
+```
+
+
+## 14. 覚えておきたいポイント（まとめ）
 
 | テーマ | 押さえるポイント |
 |---|---|
